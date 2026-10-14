@@ -109,7 +109,7 @@ main{display:block}
 .ln button{background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;padding:0;margin-top:2px}
 .empty{color:var(--muted);text-align:center;padding:40px 0}
 .cart-foot{padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}.sub{display:flex;justify-content:space-between;font-size:16px}.cart-foot .atc{margin-top:12px}
-.co{position:fixed;inset:0;z-index:80;background:rgba(17,17,17,.55);display:flex;align-items:flex-end;justify-content:center}.co[hidden]{display:none}.co.warm{visibility:hidden;pointer-events:none}
+.co{position:fixed;inset:0;z-index:80;background:rgba(17,17,17,.55);display:flex;align-items:flex-end;justify-content:center}.co[hidden]{display:none}
 .co-box{background:#fff;width:100%;max-width:620px;max-height:94vh;overflow-y:auto;border-radius:10px 10px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}
 @media(min-width:700px){.co{align-items:center}.co-box{border-radius:6px}}
 .co-sum{font-size:13.5px;color:var(--muted);margin:10px 16px}.co-wait{text-align:center;color:var(--muted);padding:24px 8px}#co-mount{min-height:440px;padding:0 12px}
@@ -581,7 +581,7 @@ function renderCart(){
 /* the cart survives a refresh and the bank's check page (3-D Secure) */
 function keep(){ try { localStorage.setItem("cart", JSON.stringify(cart)); } catch(_){} }
 function px(ev, q, ups){ try { window.whop && window.whop.track(ev, {value: total(q, ups), currency: CUR}); } catch(_){} }
-function addToCart(){ cart = {q: tq, ups: [...picked]}; px("add_to_cart", cart.q, cart.ups); renderCart(); openD("#cart"); warm(); }
+function addToCart(){ cart = {q: tq, ups: [...picked]}; px("add_to_cart", cart.q, cart.ups); renderCart(); openD("#cart"); }
 $("#atc").addEventListener("click", addToCart);
 $("#st-atc").addEventListener("click", addToCart);
 /* the sticky bar: on once the buy button scrolls away, off over the buy box and the footer */
@@ -599,22 +599,23 @@ function build(){
   [["utm_source", "utmSource"], ["utm_medium", "utmMedium"], ["utm_campaign", "utmCampaign"], ["utm_content", "utmContent"]].forEach(([a, b]) => { if(qs.get(a)) at[b] = qs.get(a); });
   elementsReady(() => { if(k !== coK) return; try { coS && coS.destroy(); } catch(_){} $("#co-mount").innerHTML = "";
     coS = window.WhopElements().checkout.create(Object.assign({plan, metadata: md, returnUrl: location.origin + location.pathname, onComplete: thanks}, Object.keys(at).length ? {attribution: at} : {}));
-    coS.create("checkout", {onReady: () => { if(k === coK && !$("#co").classList.contains("warm")) $("#co-wait").hidden = true; },
+    coS.create("checkout", {onReady: () => { if(k === coK) $("#co-wait").hidden = true; },
       onError: () => { coS = null; coK = ""; coFail(); }}).mount("#co-mount"); }, coFail);
   return true;
 }
-function coFail(){ if($("#co").hidden || $("#co").classList.contains("warm")) return; $("#co-wait").textContent = "The checkout didn't load. Refresh and try again" + (D.email ? `, or email ${D.email}.` : "."); $("#co-wait").hidden = false; }
-function warm(){ if(!cart || !D.plans[key(cart.q, cart.ups)] || !$("#co").hidden) return; $("#co").classList.add("warm"); $("#co").hidden = false; build(); }
+function coFail(){ if($("#co").hidden) return; $("#co-wait").textContent = "The checkout didn't load. Refresh and try again" + (D.email ? `, or email ${D.email}.` : "."); $("#co-wait").hidden = false; }
+/* the checkout is built on the CHECKOUT tap, in the open window: ready in ~3 s. Built ahead in a hidden window (add to cart) it took 30 s+
+   to show and its "Loading secure checkout…" line never cleared (tested live 14 Oct 2026, the day of the US$39.99 drop) */
 $("#checkout").addEventListener("click", () => {
   if(!cart) return;
   if(!D.plans[key(cart.q, cart.ups)]){ toast(D.live ? "Checkout opens in a few minutes. Please try again shortly." : "Preview: the real checkout switches on once the Whop prices are set."); return; }
   $("#co-sum").textContent = `${D.title} · ${cart.q} calendar${cart.q > 1 ? "s" : ""}` + (cart.ups.length ? ` · + ${cart.ups.join(" + ")}` : "");   // no price here: Whop's own figure below is the one they pay
   try { window.whop && window.whop.track("custom", {name: "checkout_open", value: total(cart.q, cart.ups), currency: CUR}); } catch(_){}
-  closeD(); $("#co").classList.remove("warm"); $("#co").hidden = false; document.body.classList.add("lock"); $("#co-wait").hidden = false; build();
+  closeD(); $("#co").hidden = false; document.body.classList.add("lock"); $("#co-wait").hidden = false; build();
   setTimeout(() => { const f = $("#co-mount iframe"); if(f && f.offsetHeight > 150) $("#co-wait").hidden = true; }, 4000);
 });
 function resetCo(){ try { coS && coS.destroy(); } catch(_){} coS = null; coK = ""; }   // the market changed: the next checkout is built in its currency
-function closeCo(){ $("#co").hidden = true; $("#co").classList.remove("warm"); if($("#thanks").hidden) document.body.classList.remove("lock"); }
+function closeCo(){ $("#co").hidden = true; if($("#thanks").hidden) document.body.classList.remove("lock"); }
 function thanks(){ closeCo(); cart = null; renderCart(); $("#thanks").hidden = false; document.body.classList.add("lock"); }
 $("#co-x").addEventListener("click", closeCo);
 $("#ty-x").addEventListener("click", () => { $("#thanks").hidden = true; document.body.classList.remove("lock"); history.replaceState(null, "", location.pathname); });
